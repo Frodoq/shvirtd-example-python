@@ -1,0 +1,7 @@
+FROM python:3.12-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+RUN apt-get update && apt-get install -y default-mysql-client
+CMD ["sh", "-c", "while ! mysqladmin ping -h mysql -u docker_user -ppassword --silent; do sleep 5; done && uvicorn app_wrapper:app --host 0.0.0.0 --port 8090"]
