@@ -1,30 +1,45 @@
 services:
-  mysql:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.python
+    restart: always
+    networks:
+      backend:
+        ipv4_address: 172.20.0.5
+    env_file:
+      - .env
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
     image: mysql:8
-    environment:
-      MYSQL_ROOT_PASSWORD: password
-      MYSQL_DATABASE: sokolkov_netology
-      MYSQL_USER: docker_user
-      MYSQL_PASSWORD: password
+    restart: always
+    networks:
+      backend:
+        ipv4_address: 172.20.0.10
+    env_file:
+      - .env
     volumes:
       - ./init_db.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -ppassword"]
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p${MYSQL_ROOT_PASSWORD}"]
       interval: 5s
       timeout: 5s
       retries: 10
 
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile.python
+  reverse-proxy:
+    image: haproxy:2.4
+    restart: always
+    networks:
+      backend: {}
     ports:
-      - "8090:8090"
-    environment:
-      DB_HOST: mysql
-      DB_USER: docker_user
-      DB_PASSWORD: password
-      DB_NAME: sokolkov_netology
-    depends_on:
-      mysql:
-        condition: service_healthy
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ./haproxy/reverse/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:rw
+
+networks:
+  backend:
+    name: backend
+    external: true
